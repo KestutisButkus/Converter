@@ -37,7 +37,7 @@ class AboutWindow(tk.Toplevel):
 
         tk.Label(right_frame, text="Video Converter", font=("Segoe UI", 12, "bold")).pack(anchor="w")
         tk.Label(right_frame, text="Version 1.0", font=("Segoe UI", 8)).pack(anchor="w", pady=(2, 0))
-        tk.Label(right_frame, text="Copyright © 2026 Kęstutis", font=("Segoe UI", 8)).pack(anchor="w", pady=(10, 15))
+        tk.Label(right_frame, text="Copyright © 2026 Kęstutis Butkus", font=("Segoe UI", 8)).pack(anchor="w", pady=(10, 15))
 
         desc_text = scrolledtext.ScrolledText(
             right_frame, height=8, font=("Segoe UI", 8), relief="solid",
