@@ -1,17 +1,32 @@
-from typing import List
+"""
+ffmpeg_engine.py — FFmpeg encoder selection and command building.
+
+Public API surface:
+    VideoEncoder        — encoder descriptor dataclass
+    select_encoder()    — pick the best available encoder
+    get_encoder_labels()— decode/encode label pair for UI display
+    hwaccel_for()       — resolve HW acceleration string
+    build_quality_options()
+    build_ffmpeg_cmd()
+"""
+
+from __future__ import annotations
+
+from typing import List, Set, Tuple
 from hardware import FFMPEG
 
 
 class VideoEncoder:
-    """Mažas adapteris enkoderio parametrams saugoti."""
+    """Descriptor for a single FFmpeg video encoder."""
+
     def __init__(self, name: str, codec_label: str, kind: str, options: List[str]) -> None:
-        self.name = name
+        self.name        = name
         self.codec_label = codec_label
-        self.kind = kind
-        self.options = options
+        self.kind        = kind        # "nvenc" | "amf" | "cpu" | "fallback"
+        self.options     = options
 
 
-def select_encoder(codec_id: int, quality: int, encoders: set, hwaccels: set) -> VideoEncoder:
+def select_encoder(codec_id: int, quality: int, encoders: Set[str], hwaccels: Set[str]) -> VideoEncoder:
     is_h264 = codec_id == 1
     nvenc = "h264_nvenc" if is_h264 else "hevc_nvenc"
     amf = "h264_amf" if is_h264 else "hevc_amf"
@@ -42,7 +57,7 @@ def select_encoder(codec_id: int, quality: int, encoders: set, hwaccels: set) ->
     return VideoEncoder(fallback, "h264", "fallback", ["-q:v", "5"])
 
 
-def hwaccel_for(encoder: VideoEncoder, hwaccels: set) -> str:
+def hwaccel_for(encoder: VideoEncoder, hwaccels: Set[str]) -> str:
     if encoder.kind == "nvenc" and "cuda" in hwaccels:
         return "cuda"
     if encoder.kind == "amf":
@@ -94,7 +109,7 @@ def build_ffmpeg_cmd(
     vf_filter: str,
     quality_mode: str,
     bitrate_val: int,
-    hwaccels: set,
+    hwaccels: Set[str],
 ) -> List[str]:
     cmd = [FFMPEG, "-y"]
 
@@ -142,7 +157,22 @@ def build_ffmpeg_cmd(
     return cmd
 
 
-def _decode_label_for(encoder: VideoEncoder, hwaccels: set) -> str:
+def get_encoder_labels(encoder: VideoEncoder, hwaccels: Set[str]) -> Tuple[str, str]:
+    """Return (decode_label, encode_label) for UI display.
+
+    Both labels are human-readable strings indicating whether
+    the decode/encode stage runs on GPU or CPU.
+    """
+    decode = _decode_label_for(encoder, hwaccels)
+    encode = _encode_label_for(encoder)
+    return decode, encode
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers — not part of the public API
+# ---------------------------------------------------------------------------
+
+def _decode_label_for(encoder: VideoEncoder, hwaccels: Set[str]) -> str:
     hwaccel = hwaccel_for(encoder, hwaccels)
     if encoder.kind == "nvenc" and hwaccel == "cuda":
         return "GPU nvdec"
