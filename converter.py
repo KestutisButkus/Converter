@@ -53,6 +53,7 @@ class VideoConverterApp(tk.Tk):
         self.hwaccels: set = set()
 
         self._build_ui()
+        self.after(100, self._ensure_tools_detected)
 
     def _set_icon(self) -> None:
         icon_path = hardware.find_resource("converter.ico")
@@ -246,9 +247,10 @@ class VideoConverterApp(tk.Tk):
         threading.Thread(target=self._process_queue, daemon=True).start()
 
     def _process_queue(self) -> None:
-        if not self._ensure_tools_detected():
+        if not self.encoders:
             self.after(0, self._batch_done)
             return
+
         total = len(self.queue_files)
         while self.current_index < total and not self.processor.cancel_requested:
             self._prepare_and_run_single(self.queue_files[self.current_index], self.current_index + 1, total)
@@ -332,14 +334,35 @@ class VideoConverterApp(tk.Tk):
         self.processor.terminate()
 
     def _ensure_tools_detected(self) -> bool:
-        if self._tools_detected: return True
+        if self._tools_detected:
+            return True
+
+        if not hardware.FFMPEG or not hardware.FFPROBE:
+            self._tools_detected = True
+            error_msg = (
+                "KRITINĖ KLAIDA: Nerastas 'ffmpeg.exe' arba jo komponentai!\n\n"
+                "KAIP SUTVARKYTI:\n"
+                "1. Atsisiųskite FFmpeg iš oficialios svetainės:\n"
+                "   https://www.gyan.dev/ffmpeg/builds/\n"
+                "   (Rekomenduojama: ffmpeg-release-full-shared.7z)\n\n"
+                "2. Išpakuokite atsisiųstą archyvą ir atidarykite 'bin' aplanką.\n\n"
+                "3. Nukopijuokite VISUS jame esančius failus ir įkelkite juos\n"
+                "   TIESIAI ŠALIA ŠIOS PROGRAMOS EXE failo.\n\n"
+                "Būtini nukopijuoti failai:\n"
+                "- ffmpeg.exe, ffprobe.exe\n"
+                "- avcodec-*.dll, avdevice-*.dll, avfilter-*.dll\n"
+                "- avformat-*.dll, avutil-*.dll, swresample-*.dll, swscale-*.dll"
+            )
+            messagebox.showerror("Critical Error", error_msg)
+            self._log(error_msg)
+            self.after(0, self._open_log_window)
+            return False
+
         self.encoders = hardware.get_ffmpeg_encoders()
         self.hwaccels = hardware.get_ffmpeg_hwaccels()
         self._tools_detected = True
         self._update_cq_hint()
-        if not self.encoders:
-            self._log("KRITINĖ KLAIDA: Nerastas 'ffmpeg.exe'")
-            return False
+
         self._log(f"Detected video encoders: {', '.join(sorted(self.encoders))}")
         return True
 

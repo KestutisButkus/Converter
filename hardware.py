@@ -1,9 +1,7 @@
 import os
+import shutil
 import subprocess
 from typing import Any, Dict, Optional, Sequence
-
-FFMPEG: str = "ffmpeg"
-FFPROBE: str = "ffprobe"
 
 
 def app_dir() -> str:
@@ -34,15 +32,24 @@ def find_resource(*parts: str) -> Optional[str]:
     return None
 
 
-def find_tool(name: str) -> str:
+def find_tool(name: str) -> Optional[str]:
+    # 1. Pirmiausia tikriname, ar failas yra tiesiai šalia programos (nešiojama versija)
     local_path = find_resource(f"{name}.exe")
-    if local_path:
+    if local_path and os.path.isfile(local_path):
         return local_path
-    return name
+
+    # 2. SUTVARKYTA: Jei vietinio failo nėra, saugiai tikriname sisteminį PATH aplinką per shutil.which
+    # Tai nesukelia Smart App Control įtarimų, nes neleidžia jokio fono proceso.
+    system_path = shutil.which(name)
+    if system_path:
+        return system_path
+
+    return None
 
 
-FFMPEG = find_tool("ffmpeg")
-FFPROBE = find_tool("ffprobe")
+# Konstantos dabar tvarkingai nustatomos pagal rastus kelius (vietinius arba sisteminius)
+FFMPEG: Optional[str] = find_tool("ffmpeg")
+FFPROBE: Optional[str] = find_tool("ffprobe")
 
 
 def hidden_subprocess_kwargs() -> Dict[str, Any]:
@@ -69,6 +76,8 @@ def run_tool(args: Sequence[str]) -> subprocess.CompletedProcess[str]:
 
 
 def get_ffmpeg_encoders() -> set:
+    if not FFMPEG:
+        return set()
     result = run_tool([FFMPEG, "-hide_banner", "-encoders"])
     if result.returncode != 0:
         return set()
@@ -81,6 +90,8 @@ def get_ffmpeg_encoders() -> set:
 
 
 def get_ffmpeg_hwaccels() -> set:
+    if not FFMPEG:
+        return set()
     result = run_tool([FFMPEG, "-hide_banner", "-hwaccels"])
     if result.returncode != 0:
         return set()
@@ -92,6 +103,8 @@ def get_ffmpeg_hwaccels() -> set:
 
 
 def get_duration(filepath: str) -> int:
+    if not FFPROBE:
+        return 0
     try:
         result = subprocess.run(
             [
@@ -113,6 +126,8 @@ def get_duration(filepath: str) -> int:
 
 
 def get_ffprobe_info(filepath: str) -> Dict[str, str]:
+    if not FFPROBE:
+        return {}
     try:
         result = subprocess.run(
             [
