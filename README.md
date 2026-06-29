@@ -51,6 +51,12 @@ python -m pip install --upgrade pip
 python converter.py
 ```
 
+### EXE kompiliavimas
+
+```bash
+pyinstaller --onefile --windowed --icon=converter.ico --add-data "converter.ico;." --add-data "converter.png;." --add-data "about.py;." --add-data "gui_components.py;." --add-data "batch_processor.py;." --add-data "app_utils.py;." --add-data "error_window.py;." --add-data "hardware.py;." --add-data "ffmpeg_engine.py;." converter.py
+```
+
 ## FFmpeg diegimas
 
 Jei `ffmpeg` nerastas, programa parodys instrukciją. Rankinis būdas:
